@@ -5,15 +5,17 @@ import base64
 import twitter
 import urllib.request
 import json
+import http
+from datetime import datetime
 
 # IF SCRIPT DOES NOT WORK PROBABLY DATE RANGE ARE NOT LONGER SUPPORTED (THEY ARE STALED)
 # TO FIX IT JUST SET A PROPER DATE RATE (MAX LAST 30 DAYS)
 DATE_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
 COUNT = 500
-KEYWORD = "@playstation"
+KEYWORD = "#DemDebate"
 PLACE = ""
-SINCE = "2019-10-17T13:58:00.000Z"
-UNTIL = "2019-10-17T23:59:59.999Z"
+SINCE = "2019-10-01T00:00:00.000Z"
+UNTIL = "2019-10-20T23:59:59.999Z"
 
 
 def request_data(url, payload, headers):
@@ -72,10 +74,17 @@ def main():
 
     tweets = []
     try:
-        print('### request batch started ###')
-        response = json.loads(request_data(
-            url, initialPayload, headers).read().decode())
-        tweets += response['results']
+        print('### request batch started ###', datetime.now())
+        try:
+            response = json.loads(request_data(
+                url, initialPayload, headers).read().decode())
+        except (http.client.IncompleteRead) as e:
+            page = e.partial
+
+        tweets = response['results']
+        len_tweets = len(tweets)
+        tweets = []
+        print('current number of tweets retrieved', len_tweets)
         if 'next' in response:
             while 'next' in response:
                 token = response['next']
@@ -87,11 +96,18 @@ def main():
                     'fromDate': utc_local_since.strftime("%Y%m%d%H%M"),
                     'toDate': utc_local_until.strftime("%Y%m%d%H%M"),
                 }
-                response = json.loads(request_data(
-                    url, payload, headers).read().decode())
-                tweets += response['results']
-                print('current number of tweets retrieved', len(tweets))
-        print('### request batch ended ### ')
+                try:
+                    response = json.loads(request_data(
+                        url, payload, headers).read().decode())
+                except (http.client.IncompleteRead) as e:
+                    page = e.partial
+
+                tweets = response['results']
+                len_tweets += len(tweets)
+                tweets = []
+
+                print('current number of tweets retrieved', len_tweets)
+        print('### request batch ended ### ', datetime.now())
     except urllib.error.HTTPError as error:
         print('error', error)
 
